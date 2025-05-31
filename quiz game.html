@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Game</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'#4F46E5',secondary:'#10B981'},borderRadius:{'none':'0px','sm':'4px',DEFAULT:'8px','md':'12px','lg':'16px','xl':'20px','2xl':'24px','3xl':'32px','full':'9999px','button':'8px'}}}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+<style>
+:where([class^="ri-"])::before { content: "\f3c2"; }
+body {
+font-family: 'Inter', sans-serif;
+background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 50%, #e0f2fe 100%);
+}
+.difficulty-select {
+appearance: none;
+background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+background-repeat: no-repeat;
+background-position: right 0.5rem center;
+background-size: 1.5em 1.5em;
+padding-right: 2.5rem;
+}
+.answer-btn {
+transition: all 0.2s ease;
+}
+.answer-btn:hover:not(.correct, .incorrect, .disabled) {
+transform: translateY(-2px);
+box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+.answer-btn.correct {
+background-color: #10B981;
+color: white;
+pointer-events: none;
+}
+.answer-btn.incorrect {
+background-color: #EF4444;
+color: white;
+pointer-events: none;
+}
+.answer-btn.disabled {
+opacity: 0.5;
+pointer-events: none;
+}
+.progress-bar {
+transition: width 0.5s ease;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+-webkit-appearance: none;
+margin: 0;
+}
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 px-4">
+<div class="w-full max-w-2xl mx-auto">
+<header class="mb-8 text-center">
+<h1 class="text-3xl font-bold mb-6 text-gray-800">Quiz Game</h1>
+<div class="flex justify-center mb-6">
+<div class="relative w-48">
+<select id="difficulty-select" class="difficulty-select w-full px-4 py-2 bg-white border border-gray-300 rounded-button text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+<option value="easy">Easy</option>
+<option value="medium" selected>Medium</option>
+<option value="hard">Hard</option>
+</select>
+</div>
+</div>
+<div class="flex justify-between items-center mb-2">
+<div class="text-sm font-medium text-gray-600">
+Question: <span id="current-question">0</span>/<span id="total-questions">10</span>
+</div>
+<div class="text-sm font-medium text-gray-600">
+Score: <span id="current-score">0</span>/<span id="max-score">0</span>
+</div>
+</div>
+<div class="w-full bg-gray-200 rounded-full h-2.5">
+<div id="progress-bar" class="progress-bar bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+</div>
+</header>
+<main class="mb-8">
+<div id="question-container" class="bg-white rounded-lg shadow-md p-6 mb-6">
+<p id="question-text" class="text-xl font-medium text-gray-800 mb-1">Loading question...</p>
+<p id="question-category" class="text-sm text-gray-500 mb-4">Category: General Knowledge</p>
+<div id="answers-container" class="space-y-3">
+<button class="answer-btn w-full py-3 px-4 bg-white border border-gray-300 rounded-button text-left text-gray-700 font-medium !rounded-button whitespace-nowrap">Loading answers...</button>
+<button class="answer-btn w-full py-3 px-4 bg-white border border-gray-300 rounded-button text-left text-gray-700 font-medium !rounded-button whitespace-nowrap">Loading answers...</button>
+<button class="answer-btn w-full py-3 px-4 bg-white border border-gray-300 rounded-button text-left text-gray-700 font-medium !rounded-button whitespace-nowrap">Loading answers...</button>
+<button class="answer-btn w-full py-3 px-4 bg-white border border-gray-300 rounded-button text-left text-gray-700 font-medium !rounded-button whitespace-nowrap">Loading answers...</button>
+</div>
+</div>
+<div class="flex justify-center">
+<button id="next-btn" class="hidden py-3 px-8 bg-primary text-white font-medium rounded-button shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 !rounded-button whitespace-nowrap">
+Next Question
+</button>
+</div>
+</main>
+<div id="game-over" class="hidden text-center">
+<div class="bg-white rounded-lg shadow-md p-8 mb-6">
+<h2 class="text-2xl font-bold mb-4 text-gray-800">Quiz Complete!</h2>
+<p class="text-xl mb-6">Your final score: <span id="final-score">0</span>/<span id="final-max-score">0</span></p>
+<button id="restart-btn" class="py-3 px-8 bg-primary text-white font-medium rounded-button shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 !rounded-button whitespace-nowrap">
+Play Again
+</button>
+</div>
+</div>
+</div>
+<script id="quiz-game-api">
+document.addEventListener('DOMContentLoaded', function() {
+const API_URL = 'https://opentdb.com/api.php';
+async function fetchQuestions(amount = 10, difficulty = 'medium') {
+try {
+const response = await fetch(`${API_URL}?amount=${amount}&difficulty=${difficulty}&type=multiple`);
+const data = await response.json();
+if (data.response_code === 0) {
+return data.results;
+} else {
+throw new Error('Failed to fetch questions');
+}
+} catch (error) {
+console.error('Error fetching questions:', error);
+return [];
+}
+}
+window.quizAPI = {
+fetchQuestions
+};
+});
+</script>
+<script id="quiz-game-logic">
+document.addEventListener('DOMContentLoaded', function() {
+// Game state
+let questions = [];
+let currentQuestionIndex = 0;
+let score = 0;
+let selectedAnswer = null;
+let isAnswerSelected = false;
+// DOM elements
+const difficultySelect = document.getElementById('difficulty-select');
+const questionText = document.getElementById('question-text');
+const questionCategory = document.getElementById('question-category');
+const answersContainer = document.getElementById('answers-container');
+const nextBtn = document.getElementById('next-btn');
+const currentQuestionEl = document.getElementById('current-question');
+const totalQuestionsEl = document.getElementById('total-questions');
+const currentScoreEl = document.getElementById('current-score');
+const maxScoreEl = document.getElementById('max-score');
+const progressBar = document.getElementById('progress-bar');
+const gameOverEl = document.getElementById('game-over');
+const questionContainer = document.getElementById('question-container');
+const finalScoreEl = document.getElementById('final-score');
+const finalMaxScoreEl = document.getElementById('final-max-score');
+const restartBtn = document.getElementById('restart-btn');
+// Initialize game
+async function initGame() {
+const difficulty = difficultySelect.value;
+questions = await window.quizAPI.fetchQuestions(10, difficulty);
+if (questions.length === 0) {
+questionText.textContent = 'Failed to load questions. Please try again.';
+return;
+}
+currentQuestionIndex = 0;
+score = 0;
+isAnswerSelected = false;
+totalQuestionsEl.textContent = questions.length;
+maxScoreEl.textContent = questions.length;
+finalMaxScoreEl.textContent = questions.length;
+gameOverEl.classList.add('hidden');
+questionContainer.classList.remove('hidden');
+loadQuestion();
+updateUI();
+}
+// Load current question
+function loadQuestion() {
+if (currentQuestionIndex >= questions.length) {
+endGame();
+return;
+}
+const question = questions[currentQuestionIndex];
+// Decode HTML entities
+const decodedQuestion = decodeHTMLEntities(question.question);
+questionText.textContent = decodedQuestion;
+questionCategory.textContent = `Category: ${question.category}`;
+// Clear previous answers
+answersContainer.innerHTML = '';
+// Create answer buttons
+const answers = [...question.incorrect_answers, question.correct_answer];
+shuffleArray(answers);
+answers.forEach(answer => {
+const decodedAnswer = decodeHTMLEntities(answer);
+const button = document.createElement('button');
+button.textContent = decodedAnswer;
+button.classList.add(
+'answer-btn',
+'w-full',
+'py-3',
+'px-4',
+'bg-white',
+'border',
+'border-gray-300',
+'rounded-button',
+'text-left',
+'text-gray-700',
+'font-medium',
+'!rounded-button',
+'whitespace-nowrap'
+);
+button.dataset.answer = answer;
+button.addEventListener('click', () => selectAnswer(button));
+answersContainer.appendChild(button);
+});
+nextBtn.classList.add('hidden');
+isAnswerSelected = false;
+}
+// Select answer
+function selectAnswer(button) {
+if (isAnswerSelected) return;
+isAnswerSelected = true;
+selectedAnswer = button.dataset.answer;
+const question = questions[currentQuestionIndex];
+const correctAnswer = question.correct_answer;
+// Mark all answers
+const answerButtons = answersContainer.querySelectorAll('.answer-btn');
+answerButtons.forEach(btn => {
+if (btn.dataset.answer === correctAnswer) {
+btn.classList.add('correct');
+} else if (btn === button && btn.dataset.answer !== correctAnswer) {
+btn.classList.add('incorrect');
+} else {
+btn.classList.add('disabled');
+}
+});
+// Update score
+if (selectedAnswer === correctAnswer) {
+score++;
+currentScoreEl.textContent = score;
+}
+// Show next button
+nextBtn.classList.remove('hidden');
+}
+// Move to next question
+function nextQuestion() {
+currentQuestionIndex++;
+loadQuestion();
+updateUI();
+}
+// Update UI elements
+function updateUI() {
+currentQuestionEl.textContent = currentQuestionIndex + 1;
+currentScoreEl.textContent = score;
+// Update progress bar
+const progress = ((currentQuestionIndex) / questions.length) * 100;
+progressBar.style.width = `${progress}%`;
+}
+// End game
+function endGame() {
+questionContainer.classList.add('hidden');
+gameOverEl.classList.remove('hidden');
+finalScoreEl.textContent = score;
+}
+// Helper function to decode HTML entities
+function decodeHTMLEntities(text) {
+const textArea = document.createElement('textarea');
+textArea.innerHTML = text;
+return textArea.value;
+}
+// Helper function to shuffle array
+function shuffleArray(array) {
+for (let i = array.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[array[i], array[j]] = [array[j], array[i]];
+}
+return array;
+}
+// Event listeners
+difficultySelect.addEventListener('change', initGame);
+nextBtn.addEventListener('click', nextQuestion);
+restartBtn.addEventListener('click', initGame);
+// Start the game
+initGame();
+});
+</script>
+</body>
+</html>
